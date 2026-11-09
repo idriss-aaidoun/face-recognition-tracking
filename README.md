@@ -4,13 +4,25 @@ University deep learning project comparing a small custom CNN trained from scrat
 
 ## Status and scope
 
-Custom CNN and ResNet18 model construction and targeted offline technical checks are implemented. Dataset preparation, the full training/evaluation workflow, and results are pending. No models have been trained on our identities and no demonstration is available yet.
+Automatic VGGFace2 downloading and extraction, Custom CNN and ResNet18 model construction, and targeted offline model checks are implemented. Splitting, data loaders, and the full training/evaluation workflow are pending. No models have been trained on our identities yet.
 
-This README is the current scope specification. It supersedes the conflicting requirements, architecture, schedule, and deliverables in `face_recognition_tracking_project_specification.pdf`. That original reference is preserved unchanged. Video tracking, video exports, and unknown-person rejection are optional future extensions, not first-phase requirements. No video package is included.
+## Download VGGFace2
 
-The first phase takes a face image and predicts an identity among the people represented in training. Face detection locates and crops faces; it is a supporting preprocessing step. Face identification predicts identity. Video tracking follows faces across frames.
+```powershell
+python -m pip install huggingface_hub
+python -m src.data.prepare
+```
 
-A fixed-identity classifier cannot automatically recognize newly enrolled people without further training. Unknown-person rejection may be added later with separate known/unknown validation and test data and a properly evaluated threshold. Softmax confidence alone does not reliably detect unknown people. Initial predictions are closed-set classifications.
+This downloads the training archive from
+[RichardErkhov/VGGFace2](https://huggingface.co/datasets/RichardErkhov/VGGFace2)
+and extracts images under `data/raw/vggface2/train/`. Allow space for the 37.9 GB
+archive in the Hugging Face cache plus the extracted images. Interrupted downloads
+reuse the Hub cache when retried. Extraction repeats when the command is rerun.
+
+Add `--include-test` to acquire the official test archive too, or `--root /path/to/data`
+to choose the extraction location. `--revision` selects a Hub revision. The previous
+`python -m src.data.prepare --download` command also works. No split preparation or
+image processing runs after extraction. Existing local datasets are left in place.
 
 ## Proposed comparison
 
@@ -21,7 +33,7 @@ Use the same dataset partitions, identity mapping, evaluation preprocessing, and
 
 ## Data protocol
 
-Select a licensed identity-labeled dataset with enough independent images per person. Dataset selection and acquisition are pending. Obtain consent for participant images and keep sensitive images, names, embeddings, and identifying paths local. Avoid including private information in notebooks, logs, figures, or reports.
+VGGFace2 is the starting identity-labeled dataset. Obtain consent for any additional participant images and keep sensitive images, names, embeddings, and identifying paths local. Avoid including private information in notebooks, logs, figures, or reports.
 
 Known identities must appear in training, validation, and test sets using different images. Start with approximately 70%/15%/15% per identity, adjusting counts to retain every identity in every split. Keep exact and near-duplicates together and, where relevant, separate recording sessions across splits. If there are too few independent groups for an identity, collect more data or exclude it instead of allowing leakage.
 
@@ -35,7 +47,7 @@ data/raw/                 Local source images
 data/processed/           Local prepared face images
 data/splits/              Local split manifests and identity mapping
 notebooks/                Data exploration and results-analysis outlines
-src/data/                 Preparation, datasets/loaders, and transforms
+src/data/                 Automatic dataset downloading and extraction
 src/models/               Custom CNN and ResNet18 implementations
 tests/                    Targeted offline model technical checks
 src/train.py              Shared training and validation (pending)
@@ -60,9 +72,9 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-On macOS/Linux activate with `source .venv/bin/activate`. Requirements are intentionally unpinned starting dependencies; record tested versions when implementation begins. Choose an appropriate PyTorch build for the eventual machine using its official installation guidance; no hardware-specific build is prescribed. This scaffold installs or downloads nothing.
+On macOS/Linux activate with `source .venv/bin/activate`. Choose an appropriate PyTorch build using its official installation guidance. On this Windows machine the project environment uses the CPU build. Run `python -m src.data.prepare` explicitly to download the dataset.
 
-Training, evaluation, inference, and Gradio modules are placeholders. There are no working application commands yet. Configuration paths are intended to resolve from the repository root. YAML settings are starting configurations, not validated hyperparameters. Derive the class count from the audited mapping before building models. Importing the ResNet18 module does not load or download weights.
+Training, evaluation, inference, and Gradio modules are placeholders. Dataset downloading works through the command above. Training application commands are pending. Configuration paths are intended to resolve from the repository root. YAML settings are starting configurations, not validated hyperparameters. Derive the class count from the audited mapping before building models. Importing the ResNet18 module does not load or download weights.
 
 ## ResNet18 model and data contract
 

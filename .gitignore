@@ -43,3 +43,4 @@ embeddings/
 .idea/
 .DS_Store
 Thumbs.db
+/tmp/

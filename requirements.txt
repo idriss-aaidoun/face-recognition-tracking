@@ -1,6 +1,7 @@
 # Initial image-identification dependencies; no version pins or hardware-specific builds.
 torch
 torchvision
+huggingface_hub
 Pillow
 numpy
 scikit-learn
