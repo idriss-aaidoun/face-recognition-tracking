@@ -4,7 +4,7 @@ University deep learning project comparing a small custom CNN trained from scrat
 
 ## Status and scope
 
-ResNet18 model construction and targeted offline technical checks are implemented. Dataset preparation, the custom CNN, the full training/evaluation workflow, and results are pending. No models have been trained on our identities and no demonstration is available yet.
+Custom CNN and ResNet18 model construction and targeted offline technical checks are implemented. Dataset preparation, the full training/evaluation workflow, and results are pending. No models have been trained on our identities and no demonstration is available yet.
 
 This README is the current scope specification. It supersedes the conflicting requirements, architecture, schedule, and deliverables in `face_recognition_tracking_project_specification.pdf`. That original reference is preserved unchanged. Video tracking, video exports, and unknown-person rejection are optional future extensions, not first-phase requirements. No video package is included.
 
@@ -36,8 +36,8 @@ data/processed/           Local prepared face images
 data/splits/              Local split manifests and identity mapping
 notebooks/                Data exploration and results-analysis outlines
 src/data/                 Preparation, datasets/loaders, and transforms
-src/models/               ResNet18 implementation and custom CNN placeholder
-tests/                    Targeted offline ResNet18 technical checks
+src/models/               Custom CNN and ResNet18 implementations
+tests/                    Targeted offline model technical checks
 src/train.py              Shared training and validation (pending)
 src/evaluate.py           Held-out metrics and error analysis (pending)
 src/predict.py            Saved-checkpoint image inference (pending)
@@ -110,11 +110,37 @@ python -m unittest tests.test_resnet18
 
 These checks use synthetic RGB batches and `pretrained=False` to cover output shape, the three trainable-parameter policies, cross-entropy/backpropagation, frozen gradients, BatchNorm buffers, policy changes, and invalid arguments. Mocked weight-loading checks verify argument routing and failure propagation without a download. They validate the implementation, not face-recognition accuracy or actual pretrained-weight loading. Execution requires a working Python/PyTorch/torchvision environment; merely adding these tests does not constitute a passing run.
 
+## Custom CNN trained from scratch
+
+The custom baseline uses four `Conv2d(3x3) -> BatchNorm2d -> ReLU -> MaxPool2d(2x2)` blocks with channels 32, 64, 128, and 256. For a 128x128 RGB image, the last feature map is 256x8x8. Adaptive average pooling reduces it to a 4x4 spatial grid, followed by flattening, dropout (initially 0.3), and a linear layer with K outputs. This is a starting architecture, not an experimentally selected optimum.
+
+```python
+from src.models.custom_cnn import build_custom_cnn
+
+model = build_custom_cnn(num_classes=50, dropout=0.3)  # Replace 50 with K.
+# logits = model(images)  # [B, K], directly compatible with CrossEntropyLoss.
+```
+
+All CNN weights start randomly initialized and all parameters are trainable. No torchvision dependency, pretrained backbone, or download is used by this module. Call `torch.manual_seed(42)` before construction when reproducible initialization is needed; the builder does not reset the caller's random seed. `train()` enables dropout and BatchNorm updates; `eval()` disables dropout and retains BatchNorm running statistics. Preprocessing is performed only by the data pipeline, using the same DataLoader contract described above for ResNet18. The model outputs raw logits without softmax.
+
+`configs/custom_cnn.yaml` now uses the same 128x128 RGB input, ImageNet normalization, seed 42, batch size 32, and initial 15-epoch budget as the frozen-backbone ResNet18 baseline. The planned optimizer is AdamW with learning rate `1e-3` and weight decay `1e-4`. Using ImageNet normalization on this randomly initialized CNN keeps evaluation inputs consistent; it does not make the CNN pretrained. `num_classes` remains unresolved until the shared mapping is available. Pass `num_classes` and `dropout` explicitly to the builder; the remaining configuration fields are for future training/data integration and are not automatically consumed.
+
+For a controlled comparison, reuse identical split manifests, identity mapping, input resolution, evaluation preprocessing, and training augmentation policy. Select both checkpoints by validation loss, then evaluate on the reserved test split. Record parameter counts, training time, training budgets, and hyperparameters. Compare the scratch CNN, the head-only ResNet18 baseline, and the later fine-tuned ResNet18 as distinct experiments; this compares complete approaches and does not isolate the effect of pretraining from architecture. No comparison results exist yet.
+
+Run the CNN checks with PyTorch installed, or both model suites with PyTorch and torchvision installed:
+
+```powershell
+python -m unittest tests.test_custom_cnn
+python -m unittest tests.test_custom_cnn tests.test_resnet18
+```
+
+The CNN suite checks configurable output shapes at 128x128, cross-entropy/backpropagation, an AdamW update, train/eval BatchNorm and dropout behavior, raw logits, seeded initialization, in-memory state-dict serialization, and invalid arguments. It uses synthetic tensors and writes no checkpoints. Runtime checks have not been executed in the available environment because PyTorch is absent; Python syntax checks passed. These are technical checks, not recognition-accuracy measurements.
+
 ## Implementation roadmap
 
 1. Audit identity labels and implement reproducible preprocessing/splitting in `src/data/prepare.py`, including duplicate/session grouping and leakage checks.
 2. Implement datasets/loaders and training/evaluation transforms; verify samples and the shared class mapping.
-3. Integrate the implemented ResNet18 into the shared training/validation workflow and implement the custom CNN. Tune on validation data and retain the best validation checkpoint.
+3. Integrate both implemented models into the shared training/validation workflow. Tune on validation data and retain the best validation checkpoint.
 4. Evaluate selected models on held-out test data and populate the analysis notebook and figures with real measurements.
 5. Implement checkpoint-based image prediction and a Gradio image-upload interface that reuses inference code.
 6. If time permits, separately scope and evaluate face detection integration, unknown rejection, and video tracking.

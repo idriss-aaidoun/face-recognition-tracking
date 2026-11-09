@@ -1,4 +1,6 @@
-# Starting configuration only; implementation and tuning are pending.
+# Starting configuration, not optimized hyperparameters.
+# Pass num_classes and dropout to build_custom_cnn explicitly; no YAML loader
+# connects these fields yet. Training fields describe the future shared loop.
 seed: 42
 data:
   raw_dir: data/raw
@@ -10,16 +12,16 @@ data:
   split_ratios: [0.70, 0.15, 0.15]
   num_workers: 0
 preprocessing:
-  image_size: [224, 224]
+  image_size: [128, 128]
   color_mode: RGB
-  # Shared ImageNet normalization for the initial comparison.
+  # Match ResNet18: normalize once after converting RGB pixels to [0, 1].
   mean: [0.485, 0.456, 0.406]
   std: [0.229, 0.224, 0.225]
   crop_policy: pre_cropped_face
   alignment: none
 training:
   batch_size: 32
-  epochs: 25
+  epochs: 15  # Match the initial ResNet18 head-only baseline budget.
   optimizer: AdamW
   learning_rate: 0.001
   weight_decay: 0.0001
@@ -30,3 +32,4 @@ model:
   name: custom_cnn
   num_classes: null  # Derive from the audited identity mapping.
   pretrained: false
+  dropout: 0.3
