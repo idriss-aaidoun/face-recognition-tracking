@@ -1,0 +1,45 @@
+# Virtual environments and local tooling
+.venv/
+venv/
+env/
+ENV/
+.python/
+.uv-cache/
+# Python and notebooks
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+# Secrets and sensitive participant artifacts
+.env
+.env.*
+!.env.example
+secrets/
+participants/
+participant_data/
+sensitive_data/
+embeddings/
+*.pem
+*.key
+# Local datasets, identifying split manifests, and generated artifacts
+/data/**
+!/data/raw/
+!/data/processed/
+!/data/splits/
+!/data/raw/.gitkeep
+!/data/processed/.gitkeep
+!/data/splits/.gitkeep
+/checkpoints/**
+!/checkpoints/.gitkeep
+/outputs/**
+!/outputs/.gitkeep
+*.pt
+*.pth
+*.ckpt
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

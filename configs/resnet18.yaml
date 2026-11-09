@@ -1,0 +1,42 @@
+# Starting configuration only; implementation and tuning are pending.
+seed: 42
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  train_manifest: data/splits/train.csv
+  validation_manifest: data/splits/validation.csv
+  test_manifest: data/splits/test.csv
+  class_mapping: data/splits/identity_to_class.json
+  split_ratios: [0.70, 0.15, 0.15]
+  num_workers: 0
+preprocessing:
+  image_size: [224, 224]
+  color_mode: RGB
+  # Shared ImageNet normalization for the initial comparison.
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+  crop_policy: pre_cropped_face
+  alignment: none
+training:
+  batch_size: 32
+  epochs: 25  # Total across both stages.
+  optimizer: AdamW
+  weight_decay: 0.0001
+  loss: cross_entropy
+  checkpoint_dir: checkpoints/resnet18
+  selection_metric: validation_loss
+  head_training:
+    epochs: 5
+    freeze_backbone: true
+    learning_rate: 0.001
+  fine_tuning:
+    epochs: 20
+    unfreeze_layers: [layer4]
+    backbone_learning_rate: 0.0001
+    head_learning_rate: 0.0001
+    # Keep other layers frozen; define frozen BatchNorm behavior in implementation.
+model:
+  name: resnet18
+  num_classes: null  # Use the same mapping as the custom CNN.
+  pretrained_weights: IMAGENET1K_V1  # Future explicit acquisition; no download now.
+  replace_classifier_head: true

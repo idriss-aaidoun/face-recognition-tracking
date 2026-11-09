@@ -1,0 +1,10 @@
+# Initial image-identification dependencies; no version pins or hardware-specific builds.
+torch
+torchvision
+Pillow
+numpy
+scikit-learn
+matplotlib
+PyYAML
+jupyter
+gradio
