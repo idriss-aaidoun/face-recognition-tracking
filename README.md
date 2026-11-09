@@ -19,10 +19,41 @@ and extracts images under `data/raw/vggface2/train/`. Allow space for the 37.9 G
 archive in the Hugging Face cache plus the extracted images. Interrupted downloads
 reuse the Hub cache when retried. Extraction repeats when the command is rerun.
 
+Use `python -m src.data.prepare --split test` to download only the roughly 2 GB
+official test archive for pipeline experiments. Identities used for development
+must be excluded from later unseen-person evaluation.
+
 Add `--include-test` to acquire the official test archive too, or `--root /path/to/data`
 to choose the extraction location. `--revision` selects a Hub revision. The previous
 `python -m src.data.prepare --download` command also works. No split preparation or
 image processing runs after extraction. Existing local datasets are left in place.
+
+## Explore filename lists
+
+```powershell
+python -m src.data.explore
+```
+
+Downloads only `train_list.txt` and `test_list.txt`, then reports image-path counts,
+identity counts, images per identity, repeated lines, and identity overlap between
+partitions. Outputs are `outputs/data_exploration/summary.json` and one CSV per
+partition. No image archive is downloaded. These counts do not verify image quality
+or whether each listed image exists. Existing local lists are reused; use a different
+`--lists-dir` when inspecting a different `--revision`.
+
+## Explore local images
+
+After extraction finishes:
+
+```powershell
+python -m src.data.explore_images
+```
+
+Open `notebooks/01_data_exploration.ipynb` for guided exploration. The audit inventories
+all local pilot images, compares paths with the official test list, and decodes a seeded
+sample of 1,000 images. It saves counts, sample metadata, size and brightness distributions,
+and face grids in `outputs/image_exploration/`. Use `--sample-size` to change the sample.
+Quality and pixel-duplicate checks cover the sample only. Source images are unchanged.
 
 ## Proposed comparison
 
