@@ -4,7 +4,7 @@ University deep learning project comparing a small custom CNN trained from scrat
 
 ## Status and scope
 
-This repository is a scaffold. Implementation, dataset preparation, training, evaluation, and results are pending. No models have been trained and no demonstration is available yet.
+ResNet18 model construction and targeted offline technical checks are implemented. Dataset preparation, the custom CNN, the full training/evaluation workflow, and results are pending. No models have been trained on our identities and no demonstration is available yet.
 
 This README is the current scope specification. It supersedes the conflicting requirements, architecture, schedule, and deliverables in `face_recognition_tracking_project_specification.pdf`. That original reference is preserved unchanged. Video tracking, video exports, and unknown-person rejection are optional future extensions, not first-phase requirements. No video package is included.
 
@@ -36,7 +36,8 @@ data/processed/           Local prepared face images
 data/splits/              Local split manifests and identity mapping
 notebooks/                Data exploration and results-analysis outlines
 src/data/                 Preparation, datasets/loaders, and transforms
-src/models/               Custom CNN and ResNet18 definitions (pending)
+src/models/               ResNet18 implementation and custom CNN placeholder
+tests/                    Targeted offline ResNet18 technical checks
 src/train.py              Shared training and validation (pending)
 src/evaluate.py           Held-out metrics and error analysis (pending)
 src/predict.py            Saved-checkpoint image inference (pending)
@@ -61,13 +62,59 @@ python -m pip install -r requirements.txt
 
 On macOS/Linux activate with `source .venv/bin/activate`. Requirements are intentionally unpinned starting dependencies; record tested versions when implementation begins. Choose an appropriate PyTorch build for the eventual machine using its official installation guidance; no hardware-specific build is prescribed. This scaffold installs or downloads nothing.
 
-Training, evaluation, inference, and Gradio modules are placeholders. There are no working application commands yet. Configuration paths are intended to resolve from the repository root. YAML settings are starting configurations, not validated hyperparameters. Derive the class count from the audited mapping before building models. Future pretrained weights must be acquired explicitly, not by importing placeholder modules.
+Training, evaluation, inference, and Gradio modules are placeholders. There are no working application commands yet. Configuration paths are intended to resolve from the repository root. YAML settings are starting configurations, not validated hyperparameters. Derive the class count from the audited mapping before building models. Importing the ResNet18 module does not load or download weights.
+
+## ResNet18 model and data contract
+
+Create the model from the repository root, with the actual number of selected identities:
+
+```python
+from src.models.resnet18 import build_resnet18
+
+model = build_resnet18(
+    num_classes=50,  # Example only: replace with the audited identity count K.
+    pretrained=True,
+    trainable_backbone="none",
+)
+# logits = model(images)  # [B, K]; pass directly to torch.nn.CrossEntropyLoss.
+```
+
+`pretrained=True` requests `ResNet18_Weights.DEFAULT` from torchvision. The first construction may download weights if they are not cached; loading errors propagate without a random-weight fallback. These weights were pretrained on ImageNet, not on our selected identities. The replacement head is randomly initialized and adaptation to our dataset remains to be done. Use `pretrained=False` for offline implementation checks. No weights are bundled or downloaded as part of this change.
+
+The returned module wraps the torchvision model as `model.network`; the replacement head is `model.network.fc`. Outputs are raw logits, without softmax. Preprocessing is not performed inside the model.
+
+| Backbone mode | Trainable parameters | Behavior after `model.train()` |
+|---|---|---|
+| `"none"` | Classification head (`fc`) only | Entire backbone stays in eval mode; its BatchNorm statistics stay fixed |
+| `"layer4"` | Last residual block (`layer4`) and head | Earlier blocks stay in eval mode; layer4 BatchNorm statistics can update |
+| `"all"` | Entire model | All blocks enter training mode |
+
+Call `model.train()` and `model.eval()` on the returned wrapper. No extra freeze helper is needed after `train()`. `eval()` puts all blocks in evaluation mode. Freezing parameters and freezing BatchNorm running statistics are handled together. To start a later fine-tuning stage while retaining learned weights, call `model.set_trainable_backbone("layer4")` and rebuild the optimizer with the desired parameter groups and learning rates. Do not call `model.network.train()` directly or manually change `requires_grad` to bypass the policy. State-dict keys have a `network.` prefix; reconstruct the wrapper with the saved configuration before loading a checkpoint.
+
+Expected DataLoader batches:
+
+- Floating-point images `[B, 3, H, W]`, with RGB channels; planned size is **128 x 128**.
+- Convert pixel values to `[0, 1]`, then normalize **once in the data pipeline** with ImageNet mean `[0.485, 0.456, 0.406]` and standard deviation `[0.229, 0.224, 0.225]`.
+- Labels of dtype `torch.long`, shape `[B]`, with integer values from `0` to `K - 1`; use the same contiguous identity mapping in every split.
+- Training augmentation belongs only to training data. Validation and test preprocessing must be deterministic and consistent with the checkpoint settings.
+
+`configs/resnet18.yaml` preserves the existing schema. Its `model.num_classes`, `model.pretrained`, and `model.trainable_backbone` correspond to builder arguments, but no configuration loader connects them automatically yet. `pretrained_weights: DEFAULT` documents the builder's fixed weight choice, and `replace_classifier_head: true` documents its always-on head replacement; neither is an extra builder argument. `num_classes: null` is intentionally unresolved and must be replaced by K before construction.
+
+The remaining fields describe future integration: seed 42, batch size 32, AdamW, and a 15-epoch head-only baseline at learning rate `1e-3`. The fine-tuning section describes a separate later experiment at backbone learning rate `1e-4`, with no epoch budget selected yet. These are starting choices, not optimized settings.
+
+With an existing Python environment containing torch and torchvision, run the offline checks from the repository root:
+
+```powershell
+python -m unittest tests.test_resnet18
+```
+
+These checks use synthetic RGB batches and `pretrained=False` to cover output shape, the three trainable-parameter policies, cross-entropy/backpropagation, frozen gradients, BatchNorm buffers, policy changes, and invalid arguments. Mocked weight-loading checks verify argument routing and failure propagation without a download. They validate the implementation, not face-recognition accuracy or actual pretrained-weight loading. Execution requires a working Python/PyTorch/torchvision environment; merely adding these tests does not constitute a passing run.
 
 ## Implementation roadmap
 
 1. Audit identity labels and implement reproducible preprocessing/splitting in `src/data/prepare.py`, including duplicate/session grouping and leakage checks.
 2. Implement datasets/loaders and training/evaluation transforms; verify samples and the shared class mapping.
-3. Implement both classifiers and the shared training/validation workflow. Tune on validation data and retain the best validation checkpoint.
+3. Integrate the implemented ResNet18 into the shared training/validation workflow and implement the custom CNN. Tune on validation data and retain the best validation checkpoint.
 4. Evaluate selected models on held-out test data and populate the analysis notebook and figures with real measurements.
 5. Implement checkpoint-based image prediction and a Gradio image-upload interface that reuses inference code.
 6. If time permits, separately scope and evaluate face detection integration, unknown rejection, and video tracking.
